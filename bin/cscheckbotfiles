@@ -1,0 +1,27 @@
+#!/bin/bash
+
+CSOWNER=%CSGO_USERNAME%
+CSGODIR=/home/${CSOWNER}/csgosv
+SOURCE=${CSGODIR}/csgo/botprofile.db.custom
+TARGET=${CSGODIR}/csgo/botprofile.db
+EXPECTED=${CSGODIR}/csgo/botprofile.db.lastorig
+
+
+. /home/${CSOWNER}/bin/libshellscipts
+
+
+DIFFRENCES=$(diff ${EXPECTED} ${TARGET})
+
+if [ -z "${DIFFRENCES}" ];
+  then log "Restoring ${TARGET} by ${SOURCE}"
+     cp -f ${SOURCE} ${TARGET}
+  else  DIFFRENCES2=$(diff ${SOURCE} ${TARGET})
+     if [ -n "${DIFFRENCES2}" ];
+       then MESSAGE="Problem, could not update the 'botprofile.db'. The original file is modified (probably by an update.)"
+          log "${MESSAGE}"
+          notifyMessengers '*Error on CS Server: script `cscheckbotfiles`.*'
+       else log "Nothing to do,  ${TARGET} and ${SOURCE} are equal."
+     fi
+fi
+
+

@@ -1,0 +1,31 @@
+
+
+# Temporary file directory
+tmp/
+_obj
+_test
+
+# Editor Backup Files
+*.bak
+*~
+
+# Editor Settings
+.idea/
+.vscode
+
+# Generated stuff
+README.html
+
+
+# Binary or moreorless binary stuff
+*.exe
+*.test
+*.prof
+
+# OSX nonsense
+.DS_Store
+ehthumbs.db
+Thumbs.db
+Icon?
+
+misc/~$CSGOcvars&commands.xlsm

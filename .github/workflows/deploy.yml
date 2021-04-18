@@ -1,0 +1,167 @@
+name: Copy files to CSGO Server
+on:
+  # manual trigger on https://github.com/PlanetKiF/csgo/actions?query=workflow:%22Copy+files+to+csgo+Server%22
+  workflow_dispatch:
+  # every push triggers this workflow
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+
+    ########################################################################################
+    # Check out latest source
+    - uses: actions/checkout@master
+
+    ########################################################################################
+    # Sets date/time
+    - name: Get current date
+      id: date
+      run: echo "KIFCLAN_DATE=$(date +'%a, %d.%m.%Y %H:%M:%S %Z')" >> $GITHUB_ENV
+    #- name: Get current time
+    #  uses: 1466587594/get-current-time@v2
+    #  id: current-time
+    #  with:
+    #    format: YYYYMMDD-HH
+    #    # utcOffset: "+08:00"
+    ##- name: Use current time
+    ##  env:
+    ##    TIME: "${{ steps.current-time.outputs.time }}"
+    ##    R_TIME: "${{ steps.current-time.outputs.readableTime }}"
+    ##    F_TIME: "${{ steps.current-time.outputs.formattedTime }}"
+    ##    YEAR: "${{ steps.current-time.outputs.year }}"
+    ##    DAY: "${{ steps.current-time.outputs.day }}"
+    ##  run: echo $TIME $R_TIME $F_TIME $YEAR $DAY
+    ##  # 2021-01-29T12:01:16.207Z Fri Jan 29 2021 12:01:16 GMT+0000 20210129-12 2021 29
+
+    ########################################################################################
+    # Replaces secrets / time in checkout files
+    - name: Find and Replace date/time
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%DATE_TIME%"
+        replace: "${{ env.KIFCLAN_DATE }}"
+        include: "csgosv/"
+    - name: Find and Replace username in scripts
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%CSGO_USERNAME%"
+        replace: "${{ secrets.CSGO_USERNAME }}"
+        include: "bin/"
+    - name: Find and Replace the workshop map collection id in scripts and configs
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%STEAM_WORKSHOP_COLLECTION_ID%"
+        replace: "${{ secrets.STEAM_WORKSHOP_COLLECTION_ID }}"
+        include: "bin/|csgosv/"
+    - name: Find and Replace the Slack webhook for notifications in scripts
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%SLACK_INFORMER_WEBHOOK%"
+        replace: "${{ secrets.SLACK_INFORMER_WEBHOOK }}"
+        include: "bin/"
+    - name: Find and Replace rcon password
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%RCON_PASSWORD%"
+        replace: "${{ secrets.RCON_PASSWORD }}"
+        include: "csgosv/"
+    - name: Find and Replace server password
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%SERVER_PASSWORD%"
+        replace: "${{ secrets.SERVER_PASSWORD }}"
+        include: "csgosv/"
+    - name: Find and Replace server address
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%CSGO_HOST%"
+        replace: "${{ secrets.CSGO_HOST }}"
+        include: "site/html/local/|site/nginx/sites-available/"
+    - name: Find and Replace google analytics ID
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%ANALYTICS_ID%"
+        replace: "${{ secrets.ANALYTICS_ID }}"
+        include: "site/html/local/"
+    - name: Find and Replace server adress
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%PLAYER_PASSWORD%"
+        replace: "${{ secrets.PLAYER_PASSWORD }}"
+        include: "site/html/local/"
+    - name: Find and Replace server steam account
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%STEAM_ACCOUNT%"
+        replace: "${{ secrets.STEAM_ACCOUNT }}"
+        include: "csgosv/"
+    - name: Find and Replace webapi_authkey
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%STEAM_WEBAPI_AUTHKEY%"
+        replace: "${{ secrets.STEAM_WEBAPI_AUTHKEY }}"
+        include: "csgosv/"
+    - name: Find and Replace Discord webhook
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "%NOTIFICATION_WEBHOOK%"
+        replace: "${{ secrets.NOTIFICATION_WEBHOOK }}"
+        include: "bin/"
+    ########################################################################################
+    # Copies to cs server
+    #- name: copy files via ssh key
+    #  uses:  appleboy/scp-action@v0.1.1
+    #  # https://github.com/marketplace/actions/scp-command-to-transfer-files
+    #  with:
+    #    host: ${{ secrets.CSGO_HOST }}
+    #    username: ${{ secrets.CSGO_USERNAME }}
+    #    key: ${{ secrets.CSGO_KEY }}
+    #    source: "*"
+    #    target: "/home/${{ secrets.CSGO_USERNAME }}/"
+    #    overwrite: true
+    #    debug: false
+    - name: Rsync Deployments Action
+      uses: Burnett01/rsync-deployments@4.1
+            # https://github.com/marketplace/actions/rsync-deployments-action
+      with:
+        switches: -avzr --exclude=.git*
+        path: "."
+        remote_path: /home/${{ secrets.CSGO_USERNAME }}/
+        remote_host: ${{ secrets.CSGO_HOST }}
+        remote_user: ${{ secrets.CSGO_USERNAME }}
+        remote_key: ${{ secrets.CSGO_KEY }}
+
+    ########################################################################################
+    - name: Run setup script over SSH
+      uses: garygrossgarten/github-action-ssh@release
+      with:
+        command:  /home/${{ secrets.CSGO_USERNAME }}/bin/setup
+        host: ${{ secrets.CSGO_HOST  }}
+        username: ${{ secrets.CSGO_USERNAME }}
+        privateKey: ${{ secrets.CSGO_KEY }}
+
+    ########################################################################################
+    ## Informs slack channel (disabled as we are using Discord now)
+    #- uses: 8398a7/action-slack@v3
+    #  with:
+    #    job_name: Deploy # Match the name above.
+    #    status: ${{ job.status }}
+    #    #fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
+    #    fields: message,commit,author,took # selectable (default: repo,message)
+    #  env:
+    #    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
+    #    MATRIX_CONTEXT: ${{ toJson(matrix) }} # required
+    #  if: always() # Pick up events even if the job fails or is canceled.
+    ########################################################################################
+    # Informs Discord channel
+    - name: Send status to Discord
+      uses: nebularg/actions-discord-webhook@v1
+      with:
+        webhook_url: ${{ secrets.NOTIFICATION_WEBHOOK }} # required
+        status: ${{ job.status }} # optional, this is the default
+      if: always() # or failure() or success()
